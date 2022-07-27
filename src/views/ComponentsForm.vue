@@ -1,5 +1,4 @@
 <script setup>
-import axios from 'axios'
 import { useField, useForm } from 'vee-validate'
 import { object, string, number, boolean, date } from 'yup'
 import { reactive, ref } from 'vue'
@@ -7,6 +6,7 @@ import { UniqueID } from '../features/UniqueID.js'
 import Event from '@/components/Event.vue'
 
 const showEvents = ref(false)
+let database = null
 const savedEvents = reactive([])
 
 const categories = reactive([
@@ -62,13 +62,89 @@ const { value: music } = useField('music')
 const { value: garden } = useField('garden')
 const { value: pool } = useField('pool')
 
+const getDatabase = async () => {
+   return new Promise((resolve, reject) => {
+      if (database) resolve(database)
+
+      let request = window.indexedDB.open('eventsDB', 1)
+
+      request.onerror = event => {
+         console.error('ERROR: Unable to open database', event)
+         reject('Error')
+      }
+
+      request.onsuccess = event => {
+         database = event.target.result
+         resolve(database)
+      }
+
+      request.onupgradeneeded = event => {
+         let database = event.target.result
+         database.createObjectStore('events', {
+            autoIncrement: true,
+            keyPath: 'id'
+         })
+      }
+   })
+}
+
+const getEventStore = async () => {
+   database = await getDatabase()
+
+   return new Promise((resolve, reject) => {
+      const transaction = database.transaction('events', 'readonly')
+      const store = transaction.objectStore('events')
+
+      let eventList = []
+
+      store.openCursor().onsuccess = event => {
+         const cursor = event.target.result
+         if (cursor) {
+            eventList.push(cursor.value)
+            cursor.continue()
+         }
+      }
+      transaction.oncomplete = () => resolve(eventList)
+      transaction.onerror = event => reject(event)
+   })
+}
+
+const saveEvent = async (anEvent) => {
+   database = await getDatabase()
+
+   return new Promise((resolve, reject) => {
+      const transaction = database.transaction('events', 'readwrite')
+      const store = transaction.objectStore('events')
+
+      store.put(anEvent)
+      transaction.oncomplete = () => resolve('Event successfully saved.')
+      transaction.onerror = event => reject(event)
+   })
+}
+
+const deleteEvent = async(eventID) => {
+   database = await getDatabase()
+
+   return new Promise((resolve, reject) => {
+      const transaction = database.transaction('events', 'readwrite')
+      const store = transaction.objectStore('events')
+
+      store.delete(eventID)
+      transaction.oncomplete = () => {
+         const eventIndex = savedEvents.findIndex(event => event.id === eventID)
+         savedEvents.splice(eventIndex, 1)
+         resolve('Event successfully deleted.')
+      }
+      transaction.onerror = event => reject(event)
+   })
+}
+
 const submit = handleSubmit(values => {
-   axios.post('https://json-server.istef.ml/events', values).then(() => window.location.reload())
-   savedEvents.value = []
-   axios.get('https://json-server.istef.ml/events').then((res, _) => savedEvents.push(...res.data))
+   saveEvent(values)
+   window.location.reload()
 })
 
-axios.get('https://json-server.istef.ml/events').then((res, _) => savedEvents.push(...res.data))
+getEventStore().then((res, _) => savedEvents.push(...res))
 
 </script>
 
@@ -77,8 +153,8 @@ axios.get('https://json-server.istef.ml/events').then((res, _) => savedEvents.pu
    <div>
 
       <BaseDialog :show="showEvents" @close="showEvents=false" title="My Events">
-         <div v-for="event in savedEvents" :key="event.id" >
-            <Event  :event="event" />
+         <div v-for="event in savedEvents" :key="event.id">
+            <Event :event="event" @delete-event="deleteEvent(event.id)"/>
          </div>
       </BaseDialog>
 

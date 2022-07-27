@@ -149,7 +149,7 @@ textarea {
    font-family: "Open sans", sans-serif;
    font-size: 100%;
    line-height: 1;
-   margin: 0 20px 0 0 ;
+   margin: 0 20px 0 0;
 }
 
 button,
@@ -348,7 +348,7 @@ select::ms-expand {
    color: #ffffff;
 }
 
-.button.-fill-gradient-reverse{
+.button.-fill-gradient-reverse {
    background: linear-gradient(to right, #84cf6a, #16c0b0);
    color: #ffffff;
 }
