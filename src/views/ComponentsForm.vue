@@ -5,6 +5,8 @@ import { reactive, ref } from 'vue'
 import { UniqueID } from '../features/UniqueID.js'
 import Event from '@/components/Event.vue'
 
+window.addEventListener('offline', () => {})
+
 const showEvents = ref(false)
 let database = null
 const savedEvents = reactive([])
